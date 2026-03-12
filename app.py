@@ -1,12 +1,20 @@
 # app.py
 from flask import Flask, jsonify, request
 import requests
+import os
+from dotenv import load_dotenv
+
+# Load local .env file (ignored on Render)
+load_dotenv()
 
 app = Flask(__name__)
 
-# Replace with your OpenWeatherMap API key
-API_KEY = "f05802295e2c350701b46feb0ae4e2ef"
+# Get API key from environment variable
+API_KEY = os.getenv("API_KEY")
 BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
+
+if not API_KEY:
+    raise ValueError("No API_KEY found. Set it in .env or Render environment variables.")
 
 # Home route
 @app.route('/')
@@ -19,26 +27,30 @@ def get_weather():
     city = request.args.get('city')
     if not city:
         return jsonify({"error": "Please provide a city name"}), 400
-    
-    # Make request to OpenWeatherMap API
+
     params = {
         "q": city,
         "appid": API_KEY,
         "units": "metric"  # Celsius
     }
-    response = requests.get(BASE_URL, params=params)
-    
-    if response.status_code != 200:
-        return jsonify({"error": "City not found or API error"}), 404
-    
+
+    try:
+        response = requests.get(BASE_URL, params=params, timeout=5)
+        response.raise_for_status()  # Raise error for bad status codes
+    except requests.exceptions.HTTPError as http_err:
+        return jsonify({"error": f"HTTP error: {http_err}"}), response.status_code
+    except requests.exceptions.RequestException as req_err:
+        return jsonify({"error": f"Request error: {req_err}"}), 500
+
     data = response.json()
     weather_info = {
-        "city": data["name"],
-        "temperature": data["main"]["temp"],
-        "description": data["weather"][0]["description"]
+        "city": data.get("name"),
+        "temperature": data.get("main", {}).get("temp"),
+        "description": data.get("weather", [{}])[0].get("description")
     }
     return jsonify(weather_info)
 
 if __name__ == '__main__':
-    app.run(debug=True)
-
+    # Use 0.0.0.0 for Render and port from environment variable
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
