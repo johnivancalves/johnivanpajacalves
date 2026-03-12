@@ -1,137 +1,44 @@
-from flask import Flask, jsonify, request, render_template_string, redirect, url_for
+# app.py
+from flask import Flask, jsonify, request
+import requests
 
 app = Flask(__name__)
 
-# --- Sample in-memory data (temporary demo) ---
-students = [
-    {"id": 1, "name": "Juan", "grade": 85, "section": "Zechariah"},
-    {"id": 2, "name": "Maria", "grade": 90, "section": "Zechariah"},
-    {"id": 3, "name": "Pedro", "grade": 70, "section": "Zion"}
-]
+# Replace with your OpenWeatherMap API key
+API_KEY = "f05802295e2c350701b46feb0ae4e2ef"
+BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
 
-# --- Home ---
+# Home route
 @app.route('/')
 def home():
-    return redirect(url_for('list_students'))
+    return "Welcome to my Weather Flask API!"
 
-# --- View all students ---
-@app.route('/students', methods=['GET'])
-def list_students():
-    html = """
-    <h2>Student List</h2>
-    <ul>
-    {% for s in students %}
-        <li>
-        ID: {{s.id}} - {{s.name}} (Grade: {{s.grade}}, Section: {{s.section}}, Remarks: {{ 'Pass' if s.grade>=75 else 'Fail' }})
-        [<a href="/edit_student/{{s.id}}">Edit</a>] 
-        [<a href="/delete_student/{{s.id}}">Delete</a>]
-        </li>
-    {% endfor %}
-    </ul>
-    <br><a href="/add_student_form">Add New Student</a>
-    <br><a href="/summary">View Summary</a>
-    """
-    return render_template_string(html, students=students)
-
-# --- Add Student Form ---
-@app.route('/add_student_form')
-def add_student_form():
-    html = """
-    <h2>Add New Student</h2>
-    <form action="/add_student" method="POST">
-        Name: <input type="text" name="name" autofocus><br><br>
-        Grade: <input type="number" name="grade" min="0" max="100"><br><br>
-        Section: <input type="text" name="section"><br><br>
-        <input type="submit" value="Add Student">
-    </form>
-    <br><a href="/students">Back to List</a>
-    """
-    return render_template_string(html)
-
-# --- Add Student (POST) ---
-@app.route('/add_student', methods=['POST'])
-def add_student():
-    try:
-        name = request.form.get("name")
-        grade = int(request.form.get("grade"))
-        section = request.form.get("section")
-        
-        if not (0 <= grade <= 100):
-            return jsonify({"error": "Grade must be between 0 and 100"}), 400
-        
-        new_id = len(students) + 1
-        new_student = {"id": new_id, "name": name, "grade": grade, "section": section}
-        students.append(new_student)
-        
-        return redirect(url_for('list_students'))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-
-# --- Edit Student ---
-@app.route('/edit_student/<int:id>', methods=['GET', 'POST'])
-def edit_student(id):
-    student = next((s for s in students if s["id"] == id), None)
-    if not student:
-        return "Student not found", 404
-    if request.method == 'POST':
-        try:
-            student["name"] = request.form["name"]
-            student["grade"] = int(request.form["grade"])
-            student["section"] = request.form["section"]
-            if not (0 <= student["grade"] <= 100):
-                return jsonify({"error": "Grade must be between 0 and 100"}), 400
-            return redirect(url_for('list_students'))
-        except Exception as e:
-            return jsonify({"error": str(e)}), 400
+# GET weather by city
+@app.route('/weather', methods=['GET'])
+def get_weather():
+    city = request.args.get('city')
+    if not city:
+        return jsonify({"error": "Please provide a city name"}), 400
     
-    html = """
-    <h2>Edit Student</h2>
-    <form method="POST">
-        Name: <input type="text" name="name" value="{{student.name}}"><br><br>
-        Grade: <input type="number" name="grade" value="{{student.grade}}" min="0" max="100"><br><br>
-        Section: <input type="text" name="section" value="{{student.section}}"><br><br>
-        <button type="submit">Update</button>
-    </form>
-    <br><a href="/students">Back to List</a>
-    """
-    return render_template_string(html, student=student)
-
-# --- Delete Student ---
-@app.route('/delete_student/<int:id>')
-def delete_student(id):
-    global students
-    students = [s for s in students if s["id"] != id]
-    return redirect(url_for('list_students'))
-
-# --- Summary (Analytics) ---
-@app.route('/summary')
-def summary():
-    grades = [s['grade'] for s in students]
-    if not grades:
-        return jsonify({"message": "No students yet."})
+    # Make request to OpenWeatherMap API
+    params = {
+        "q": city,
+        "appid": API_KEY,
+        "units": "metric"  # Celsius
+    }
+    response = requests.get(BASE_URL, params=params)
     
-    passed = len([g for g in grades if g >= 75])
-    failed = len(grades) - passed
-    avg = sum(grades) / len(grades)
+    if response.status_code != 200:
+        return jsonify({"error": "City not found or API error"}), 404
     
-    return jsonify({
-        "total_students": len(students),
-        "average_grade": avg,
-        "passed": passed,
-        "failed": failed
-    })
-
-# --- Individual Student API with Pass/Fail ---
-@app.route('/student')
-def get_student():
-    grade = int(request.args.get('grade', 0))
-    remarks = "Pass" if grade >= 75 else "Fail"
-    return jsonify({
-        "name": "Juan",
-        "grade": grade,
-        "section": "Zechariah",
-        "remarks": remarks
-    })
+    data = response.json()
+    weather_info = {
+        "city": data["name"],
+        "temperature": data["main"]["temp"],
+        "description": data["weather"][0]["description"]
+    }
+    return jsonify(weather_info)
 
 if __name__ == '__main__':
     app.run(debug=True)
+
