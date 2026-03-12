@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, jsonify, request
 import requests
 import os
@@ -16,12 +15,10 @@ BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
 if not API_KEY:
     raise ValueError("No API_KEY found. Set it in .env or Render environment variables.")
 
-# Home route
 @app.route('/')
 def home():
     return "Welcome to my Weather Flask API!"
 
-# GET weather by city
 @app.route('/weather', methods=['GET'])
 def get_weather():
     city = request.args.get('city')
@@ -31,12 +28,12 @@ def get_weather():
     params = {
         "q": city,
         "appid": API_KEY,
-        "units": "metric"  # Celsius
+        "units": "metric"
     }
 
     try:
         response = requests.get(BASE_URL, params=params, timeout=5)
-        response.raise_for_status()  # Raise error for bad status codes
+        response.raise_for_status()
     except requests.exceptions.HTTPError as http_err:
         return jsonify({"error": f"HTTP error: {http_err}"}), response.status_code
     except requests.exceptions.RequestException as req_err:
@@ -51,6 +48,6 @@ def get_weather():
     return jsonify(weather_info)
 
 if __name__ == '__main__':
-    # Use 0.0.0.0 for Render and port from environment variable
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
