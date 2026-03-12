@@ -2,137 +2,255 @@ from flask import Flask, jsonify, request, render_template_string, redirect, url
 
 app = Flask(__name__)
 
-# --- Sample in-memory data (temporary demo) ---
+# --- Sample in-memory data ---
 students = [
     {"id": 1, "name": "Juan", "grade": 85, "section": "Zechariah"},
     {"id": 2, "name": "Maria", "grade": 90, "section": "Zechariah"},
     {"id": 3, "name": "Pedro", "grade": 70, "section": "Zion"}
 ]
 
+# --- Base Style ---
+STYLE = """
+<style>
+body{
+    font-family: Arial;
+    background:#f4f6f9;
+    padding:30px;
+}
+.container{
+    max-width:900px;
+    margin:auto;
+    background:white;
+    padding:20px;
+    border-radius:8px;
+    box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+h1,h2{
+    text-align:center;
+}
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+th,td{
+    padding:10px;
+    border-bottom:1px solid #ddd;
+    text-align:center;
+}
+th{
+    background:#007BFF;
+    color:white;
+}
+.pass{
+    color:green;
+    font-weight:bold;
+}
+.fail{
+    color:red;
+    font-weight:bold;
+}
+.btn{
+    padding:6px 10px;
+    text-decoration:none;
+    border-radius:4px;
+    color:white;
+}
+.edit{background:orange;}
+.delete{background:red;}
+.add{background:green;}
+.summary{background:#007BFF;}
+.card{
+    display:inline-block;
+    width:23%;
+    padding:15px;
+    margin:1%;
+    background:#007BFF;
+    color:white;
+    border-radius:6px;
+    text-align:center;
+}
+input{
+    padding:8px;
+    width:95%;
+}
+form{
+    margin-top:20px;
+}
+</style>
+"""
+
 # --- Home ---
 @app.route('/')
 def home():
     return redirect(url_for('list_students'))
 
-# --- View all students ---
-@app.route('/students', methods=['GET'])
+# --- View Students ---
+@app.route('/students')
 def list_students():
-    html = """
-    <h2>Student List</h2>
-    <ul>
-    {% for s in students %}
-        <li>
-        ID: {{s.id}} - {{s.name}} (Grade: {{s.grade}}, Section: {{s.section}}, Remarks: {{ 'Pass' if s.grade>=75 else 'Fail' }})
-        [<a href="/edit_student/{{s.id}}">Edit</a>] 
-        [<a href="/delete_student/{{s.id}}">Delete</a>]
-        </li>
-    {% endfor %}
-    </ul>
-    <br><a href="/add_student_form">Add New Student</a>
-    <br><a href="/summary">View Summary</a>
+    html = STYLE + """
+    <div class="container">
+    <h1>Student Management System</h1>
+
+    <a class="btn add" href="/add_student_form">Add Student</a>
+    <a class="btn summary" href="/summary_page">Summary</a>
+
+    <br><br>
+
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Grade</th>
+            <th>Section</th>
+            <th>Remarks</th>
+            <th>Actions</th>
+        </tr>
+
+        {% for s in students %}
+        <tr>
+            <td>{{s.id}}</td>
+            <td>{{s.name}}</td>
+            <td>{{s.grade}}</td>
+            <td>{{s.section}}</td>
+            <td class="{{'pass' if s.grade>=75 else 'fail'}}">
+                {{ 'Pass' if s.grade>=75 else 'Fail' }}
+            </td>
+            <td>
+                <a class="btn edit" href="/edit_student/{{s.id}}">Edit</a>
+                <a class="btn delete" onclick="return confirm('Delete student?')" href="/delete_student/{{s.id}}">Delete</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    </div>
     """
     return render_template_string(html, students=students)
 
-# --- Add Student Form ---
+# --- Add Form ---
 @app.route('/add_student_form')
 def add_student_form():
-    html = """
-    <h2>Add New Student</h2>
+    html = STYLE + """
+    <div class="container">
+    <h2>Add Student</h2>
+
     <form action="/add_student" method="POST">
-        Name: <input type="text" name="name" autofocus><br><br>
-        Grade: <input type="number" name="grade" min="0" max="100"><br><br>
-        Section: <input type="text" name="section"><br><br>
-        <input type="submit" value="Add Student">
+        Name:<br>
+        <input type="text" name="name" required><br><br>
+
+        Grade:<br>
+        <input type="number" name="grade" min="0" max="100" required><br><br>
+
+        Section:<br>
+        <input type="text" name="section" required><br><br>
+
+        <button class="btn add">Add Student</button>
     </form>
-    <br><a href="/students">Back to List</a>
+
+    <br>
+    <a href="/students">Back</a>
+    </div>
     """
     return render_template_string(html)
 
-# --- Add Student (POST) ---
+# --- Add Student ---
 @app.route('/add_student', methods=['POST'])
 def add_student():
-    try:
-        name = request.form.get("name")
-        grade = int(request.form.get("grade"))
-        section = request.form.get("section")
-        
-        if not (0 <= grade <= 100):
-            return jsonify({"error": "Grade must be between 0 and 100"}), 400
-        
-        new_id = len(students) + 1
-        new_student = {"id": new_id, "name": name, "grade": grade, "section": section}
-        students.append(new_student)
-        
-        return redirect(url_for('list_students'))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    name = request.form['name']
+    grade = int(request.form['grade'])
+    section = request.form['section']
+
+    new_id = len(students) + 1
+
+    students.append({
+        "id": new_id,
+        "name": name,
+        "grade": grade,
+        "section": section
+    })
+
+    return redirect(url_for('list_students'))
 
 # --- Edit Student ---
-@app.route('/edit_student/<int:id>', methods=['GET', 'POST'])
+@app.route('/edit_student/<int:id>', methods=['GET','POST'])
 def edit_student(id):
-    student = next((s for s in students if s["id"] == id), None)
-    if not student:
-        return "Student not found", 404
+    student = next((s for s in students if s["id"]==id),None)
+
     if request.method == 'POST':
-        try:
-            student["name"] = request.form["name"]
-            student["grade"] = int(request.form["grade"])
-            student["section"] = request.form["section"]
-            if not (0 <= student["grade"] <= 100):
-                return jsonify({"error": "Grade must be between 0 and 100"}), 400
-            return redirect(url_for('list_students'))
-        except Exception as e:
-            return jsonify({"error": str(e)}), 400
-    
-    html = """
+        student["name"] = request.form["name"]
+        student["grade"] = int(request.form["grade"])
+        student["section"] = request.form["section"]
+        return redirect(url_for('list_students'))
+
+    html = STYLE + """
+    <div class="container">
     <h2>Edit Student</h2>
+
     <form method="POST">
-        Name: <input type="text" name="name" value="{{student.name}}"><br><br>
-        Grade: <input type="number" name="grade" value="{{student.grade}}" min="0" max="100"><br><br>
-        Section: <input type="text" name="section" value="{{student.section}}"><br><br>
-        <button type="submit">Update</button>
+        Name:<br>
+        <input type="text" name="name" value="{{student.name}}"><br><br>
+
+        Grade:<br>
+        <input type="number" name="grade" value="{{student.grade}}"><br><br>
+
+        Section:<br>
+        <input type="text" name="section" value="{{student.section}}"><br><br>
+
+        <button class="btn edit">Update</button>
     </form>
-    <br><a href="/students">Back to List</a>
+
+    <br>
+    <a href="/students">Back</a>
+    </div>
     """
     return render_template_string(html, student=student)
 
-# --- Delete Student ---
+# --- Delete ---
 @app.route('/delete_student/<int:id>')
 def delete_student(id):
     global students
     students = [s for s in students if s["id"] != id]
     return redirect(url_for('list_students'))
 
-# --- Summary (Analytics) ---
-@app.route('/summary')
-def summary():
-    grades = [s['grade'] for s in students]
-    if not grades:
-        return jsonify({"message": "No students yet."})
-    
-    passed = len([g for g in grades if g >= 75])
-    failed = len(grades) - passed
-    avg = sum(grades) / len(grades)
-    
-    return jsonify({
-        "total_students": len(students),
-        "average_grade": avg,
-        "passed": passed,
-        "failed": failed
-    })
+# --- Summary Dashboard ---
+@app.route('/summary_page')
+def summary_page():
+    grades=[s['grade'] for s in students]
 
-# --- Individual Student API with Pass/Fail ---
-@app.route('/student')
-def get_student():
-    grade = int(request.args.get('grade', 0))
-    remarks = "Pass" if grade >= 75 else "Fail"
-    return jsonify({
-        "name": "Juan",
-        "grade": grade,
-        "section": "Zechariah",
-        "remarks": remarks
-    })
+    total=len(students)
+    avg=sum(grades)/len(grades) if grades else 0
+    passed=len([g for g in grades if g>=75])
+    failed=total-passed
+
+    html = STYLE + """
+    <div class="container">
+    <h2>Class Summary</h2>
+
+    <div class="card">
+        <h3>Total Students</h3>
+        <h1>{{total}}</h1>
+    </div>
+
+    <div class="card">
+        <h3>Average Grade</h3>
+        <h1>{{avg}}</h1>
+    </div>
+
+    <div class="card">
+        <h3>Passed</h3>
+        <h1>{{passed}}</h1>
+    </div>
+
+    <div class="card">
+        <h3>Failed</h3>
+        <h1>{{failed}}</h1>
+    </div>
+
+    <br><br>
+    <a href="/students">Back</a>
+    </div>
+    """
+
+    return render_template_string(html,total=total,avg=round(avg,2),passed=passed,failed=failed)
 
 if __name__ == '__main__':
     app.run(debug=True)
-
