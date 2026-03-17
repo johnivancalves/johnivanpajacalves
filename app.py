@@ -1,94 +1,109 @@
-from flask import Flask, jsonify, request
+from flask import Flask, render_template_string
 
 app = Flask(__name__)
 
-# --- In-memory "database" ---
-students = []
-
-# --- Helper function for consistent JSON response ---
-def create_response(status: str, message: str, data=None):
-    return jsonify({
-        "status": status,
-        "message": message,
-        "data": data
-    })
-
-# --- Home Route ---
-@app.route('/', methods=['GET'])
-def home():
-    return create_response(
-        status="success",
-        message="Welcome to the Student Information System API",
-        data={
-            "endpoints": {
-                "/students [GET]": "Get all students",
-                "/students [POST]": "Add a new student",
-                "/students/<id> [GET]": "Get a student by ID",
-                "/students/<id> [PUT]": "Update a student by ID",
-                "/students/<id> [DELETE]": "Delete a student by ID"
-            }
-        }
-    )
-
-# --- Get All Students ---
-@app.route('/students', methods=['GET'])
-def get_students():
-    return create_response(status="success", message=f"{len(students)} students found", data=students)
-
-# --- Add New Student ---
-@app.route('/students', methods=['POST'])
-def add_student():
-    data = request.get_json()
-    if not data or not all(k in data for k in ("name", "grade", "section")):
-        return create_response(status="error", message="Missing student information"), 400
-    
-    student_id = len(students) + 1
-    student = {
-        "id": student_id,
-        "name": data["name"],
-        "grade": data["grade"],
-        "section": data["section"]
+# Sample student data
+students = [
+    {
+        "name": "John Ivan Calves",
+        "grade": 10,
+        "section": "Zechariah",
+        "photo": "https://i.pravatar.cc/150?img=1"  # Placeholder avatar
+    },
+    {
+        "name": "Maria Santos",
+        "grade": 9,
+        "section": "Gabriel",
+        "photo": "https://i.pravatar.cc/150?img=2"
+    },
+    {
+        "name": "Juan Dela Cruz",
+        "grade": 11,
+        "section": "Michael",
+        "photo": "https://i.pravatar.cc/150?img=3"
     }
-    students.append(student)
-    return create_response(status="success", message="Student added successfully", data=student), 201
+]
 
-# --- Get Student by ID ---
-@app.route('/students/<int:student_id>', methods=['GET'])
-def get_student(student_id):
-    student = next((s for s in students if s["id"] == student_id), None)
-    if not student:
-        return create_response(status="error", message="Student not found"), 404
-    return create_response(status="success", message="Student found", data=student)
+@app.route('/')
+def home():
+    return "Welcome to my Flask Student Dashboard API!"
 
-# --- Update Student by ID ---
-@app.route('/students/<int:student_id>', methods=['PUT'])
-def update_student(student_id):
-    student = next((s for s in students if s["id"] == student_id), None)
-    if not student:
-        return create_response(status="error", message="Student not found"), 404
-
-    data = request.get_json()
-    student["name"] = data.get("name", student["name"])
-    student["grade"] = data.get("grade", student["grade"])
-    student["section"] = data.get("section", student["section"])
-
-    return create_response(status="success", message="Student updated successfully", data=student)
-
-# --- Delete Student by ID ---
-@app.route('/students/<int:student_id>', methods=['DELETE'])
-def delete_student(student_id):
-    global students
-    student = next((s for s in students if s["id"] == student_id), None)
-    if not student:
-        return create_response(status="error", message="Student not found"), 404
-
-    students = [s for s in students if s["id"] != student_id]
-    return create_response(status="success", message="Student deleted successfully", data=student)
-
-# --- Error Handling ---
-@app.errorhandler(404)
-def not_found(error):
-    return create_response(status="error", message="Resource not found"), 404
+@app.route('/students')
+def student_dashboard():
+    html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Student Dashboard</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f0f2f5;
+                margin: 0;
+                padding: 20px;
+            }
+            h1 {
+                text-align: center;
+                color: #2c3e50;
+            }
+            .cards {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 20px;
+                margin-top: 30px;
+            }
+            .card {
+                background-color: #fff;
+                border-radius: 10px;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+                padding: 20px;
+                width: 250px;
+                text-align: center;
+                transition: transform 0.2s;
+            }
+            .card:hover {
+                transform: translateY(-5px);
+            }
+            .card img {
+                border-radius: 50%;
+                width: 100px;
+                height: 100px;
+                object-fit: cover;
+                margin-bottom: 15px;
+            }
+            .card p {
+                margin: 5px 0;
+                font-size: 16px;
+            }
+            .grade {
+                font-weight: bold;
+                color: #e74c3c;
+            }
+            .section {
+                font-weight: bold;
+                color: #3498db;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Student Dashboard</h1>
+        <div class="cards">
+            {% for student in students %}
+            <div class="card">
+                <img src="{{ student.photo }}" alt="Profile Picture">
+                <p><strong>Name:</strong> {{ student.name }}</p>
+                <p class="grade"><strong>Grade:</strong> {{ student.grade }}</p>
+                <p class="section"><strong>Section:</strong> {{ student.section }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </body>
+    </html>
+    """
+    return render_template_string(html, students=students)
 
 if __name__ == "__main__":
     app.run(debug=True)
